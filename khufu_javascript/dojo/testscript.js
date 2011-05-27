@@ -1,0 +1,1 @@
+dojo.provides('foo.bar');

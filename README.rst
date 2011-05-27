@@ -12,7 +12,9 @@ Dojo Support
 Usage
 -----
 
+Setting up khufu_javascript.dojo is easy.
 ::
+
     # config must be an instance of pyramid.config.Configurator
     config.include('khufu_javascript.dojo')
     config.register_script_dir('myproject:javascripts')

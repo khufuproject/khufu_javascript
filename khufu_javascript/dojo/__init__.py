@@ -15,8 +15,8 @@ DEFAULT_DJCONFIG = {
     #modulePaths: {},
 }
 
-provides_re = re.compile(
-    r'dojo.provides *\( *["\']([a-zA-Z0-9 _.-]+)["\'] *\) *;.*')
+provide_re = re.compile(
+    r'dojo.provide *\( *["\']([a-zA-Z0-9 _.-]+)["\'] *\) *;.*')
 
 
 class IScriptRegistry(Interface):
@@ -44,27 +44,28 @@ class ScriptRegistry(object):
         scripts.update(self.scripts)
         return scripts.items()
 
-    def get_script_filename(self, provides):
-        if provides in self.scripts:
-            return self.scripts[provides]
+    def get_script_filename(self, provide):
+        if provide in self.scripts:
+            return self.scripts[provide]
         if self.parent is not None:
-            return self.parent.scripts.get(provides)
+            return self.parent.scripts.get(provide)
         return None
 
-    def register_script(self, fname, provides=None):
+    def register_script(self, fname, provide=None):
         filename = abspath_from_asset_spec(fname, self.default_package)
-        if provides is None:
+        if provide is None:
             with open(filename) as f:
                 for line in f:
-                    match = provides_re.match(line.strip())
+                    match = provide_re.match(line.strip())
                     if match:
-                        provides = match.group(1)
+                        provide = match.group(1)
                         break
 
-        if not provides:
-            raise ValueError('%s does not contain a "dojo.provides()" entry')
+        if not provide:
+            raise ValueError('%s does not contain a '
+                             '"dojo.provide()" entry' % fname)
 
-        self.scripts[provides] = filename
+        self.scripts[provide] = filename
 
     def register_script_dir(self, dirspec):
         dirname = abspath_from_asset_spec(dirspec, self.default_package)
@@ -73,9 +74,9 @@ class ScriptRegistry(object):
                 self.register_script(os.path.join(dirname, x))
 
 
-def register_script(config_or_request, fname, provides=None):
+def register_script(config_or_request, fname, provide=None):
     registry = get_script_registry(config_or_request)
-    registry.register_script(fname, provides)
+    registry.register_script(fname, provide)
 
 
 def register_script_dir(config_or_request, dirspec):
@@ -118,8 +119,8 @@ def generate_dj_config(request):
     app_url = request.application_url
     if not app_url.endswith('/'):
         app_url += '/'
-    for provides, fname in registry.get_scripts():
-        parts = provides.rsplit('.', 1)
+    for provide, fname in registry.get_scripts():
+        parts = provide.rsplit('.', 1)
         main = parts[0]
         module_paths[main] = app_url + 'dojo/' + main
     return dj_config
@@ -154,14 +155,25 @@ def render_header(request):
 
 class ScriptView(object):
 
+    def __init__(self):
+        self._apps = {}
+
+    def get_static_url_parser(self, dirname):
+        if dirname in self._apps:
+            return self._apps[dirname]
+
+        self._apps[dirname] = app = StaticURLParser(dirname)
+        return app
+
     def __call__(self, request):
-        provides = '.'.join(request.matchdict['provides'])
-        provides = provides.rsplit('.', 1)[0]
+        provide = '.'.join(request.matchdict['provide'])
+        provide = provide.rsplit('.', 1)[0]
 
         registry = get_script_registry(request)
-        fname = registry.get_script_filename(provides)
+        fname = registry.get_script_filename(provide)
 
-        app = StaticURLParser(os.path.dirname(fname))
+        app = self.get_static_url_parser(os.path.dirname(fname))
+
         request_copy = request.copy()
         # Fix up PATH_INFO to get rid of everything but the "subpath"
         # (the actual path to the file relative to the root dir).
@@ -175,5 +187,5 @@ def includeme(config):
     config.add_directive('register_script', register_script)
     config.add_directive('register_script_dir', register_script_dir)
     view = ScriptView()
-    config.add_route('dojo', '/dojo', view=view)
-    config.add_route('dojo', '/dojo/*provides', view=view)
+    config.add_route('dojo1', '/dojo', view=view)
+    config.add_route('dojo2', '/dojo/*provide', view=view)

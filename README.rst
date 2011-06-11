@@ -51,7 +51,7 @@ After having registered scripts, inside of your views you can simply call
     <!-- templates/foo.jinja2 -->
     <html>
       <head>
-        {{ dojo_header }}
+        {{ dojo_header|safe }}
       </head>
       <body>
         yes sir!

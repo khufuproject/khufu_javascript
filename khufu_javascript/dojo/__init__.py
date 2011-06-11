@@ -5,7 +5,9 @@ import json
 from zope.interface import Interface, implements
 from pyramid.asset import abspath_from_asset_spec
 from paste.urlparser import StaticURLParser
+from pyramid.httpexceptions import HTTPSeeOther
 from pyramid.exceptions import NotFound
+from pyramid.response import Response
 
 from ..utils import PrefixedDict, SourcedDict
 
@@ -170,6 +172,9 @@ class ScriptView(object):
         provide = '.'.join(request.matchdict['provide'])
         provide = provide.rsplit('.', 1)[0]
 
+        if not provide:
+            return self.dojo_listing(request)
+
         registry = get_script_registry(request)
         fname = registry.get_script_filename(provide)
 
@@ -187,21 +192,35 @@ class ScriptView(object):
         request_copy.environ['SCRIPT_NAME'] = ''
         return request_copy.get_response(app)
 
+    def _listing_html(self, request):
+        registry = get_script_registry(request)
+        base_url = request.application_url
+        if not base_url.endswith('/'):
+            base_url += '/'
+        base_url += 'dojo'
 
-def dojo_listing(request):
-    from pyramid.response import Response
-    registry = get_script_registry(request)
-    response = Response()
-    response.headers['Content-Type'] = 'text/plain'
-    response.charset = 'utf-8'
-    response.unicode_body = unicode(registry.scripts)
-    return response
+        yield u'<ul>'
+        for k, v in registry.get_scripts():
+            yield u'<li>'
+            fname = k.replace('.', '/')
+            yield u'<a href="%s/%s.js">%s.js</a>\n' % (base_url, fname, fname)
+            yield u'</li>'
+        yield u'</ul>'
+
+    def dojo_listing(self, request):
+        response = Response()
+        response.headers['Content-Type'] = 'text/html'
+        response.charset = 'utf-8'
+        response.app_iter = self._listing_html(request)
+        return response
+
+
+def slash_redirect(request):
+    return HTTPSeeOther(location=request.url + '/')
 
 
 def includeme(config):
     config.add_directive('register_script', register_script)
     config.add_directive('register_script_dir', register_script_dir)
     config.add_route('dojo', '/dojo/*provide', view=ScriptView())
-
-    if config.registry.settings.get('DEBUG'):
-        config.add_route('dojo_listing', '/dojo', view=dojo_listing)
+    config.add_route('dojo_redirect', '/dojo', slash_redirect)

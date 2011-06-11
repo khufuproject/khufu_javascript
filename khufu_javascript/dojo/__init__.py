@@ -123,13 +123,16 @@ def generate_dj_config(request):
         if 'debugAtAllCosts' not in dj_config:
             dj_config['debugAtAllCosts'] = True
 
-    if not os.path.exists('dojo'):
-        module_paths = dj_config.get('modulePaths')
-        if module_paths is None:
-            dj_config['modulePaths'] = module_paths = {}
-        for provide, fname in registry.get_scripts():
-            parts = provide.rsplit('.', 1)
-            module_paths[parts[0]] = parts[0]
+    module_paths = dj_config.get('modulePaths')
+    if module_paths is None:
+        dj_config['modulePaths'] = module_paths = {}
+    for provide, fname in registry.get_scripts():
+        parts = provide.rsplit('.', 1)
+        p = parts[0]
+        if os.path.exists('dojo'):
+            module_paths[p] = '../' + p
+        else:
+            module_paths[p] = p
 
     base_url = request.application_url
     if not base_url.endswith('/'):
@@ -157,7 +160,6 @@ def render_header(request):
     registry = get_script_registry(request)
     dijit_html = u''
     dijit_theme = registry.settings.get('dijit_theme')
-    print dijit_theme
 
     if dijit_theme:
         dijit_html = u'''\

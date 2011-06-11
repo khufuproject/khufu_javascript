@@ -5,6 +5,7 @@ import json
 from zope.interface import Interface, implements
 from pyramid.asset import abspath_from_asset_spec
 from paste.urlparser import StaticURLParser
+from pyramid.exceptions import NotFound
 
 from ..utils import PrefixedDict, SourcedDict
 
@@ -172,6 +173,10 @@ class ScriptView(object):
         registry = get_script_registry(request)
         fname = registry.get_script_filename(provide)
 
+        if not fname:
+            s = request.url[len(request.application_url):]
+            raise NotFound(message=s)
+
         app = self.get_static_url_parser(os.path.dirname(fname))
 
         request_copy = request.copy()
@@ -183,9 +188,20 @@ class ScriptView(object):
         return request_copy.get_response(app)
 
 
+def dojo_listing(request):
+    from pyramid.response import Response
+    registry = get_script_registry(request)
+    response = Response()
+    response.headers['Content-Type'] = 'text/plain'
+    response.charset = 'utf-8'
+    response.unicode_body = unicode(registry.scripts)
+    return response
+
+
 def includeme(config):
     config.add_directive('register_script', register_script)
     config.add_directive('register_script_dir', register_script_dir)
-    view = ScriptView()
-    config.add_route('dojo1', '/dojo', view=view)
-    config.add_route('dojo2', '/dojo/*provide', view=view)
+    config.add_route('dojo', '/dojo/*provide', view=ScriptView())
+
+    if config.registry.settings.get('DEBUG'):
+        config.add_route('dojo_listing', '/dojo', view=dojo_listing)

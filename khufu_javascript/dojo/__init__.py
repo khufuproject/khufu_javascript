@@ -119,13 +119,16 @@ def generate_dj_config(request):
     if module_paths is None:
         dj_config['modulePaths'] = module_paths = {}
 
-    app_url = request.application_url
-    if not app_url.endswith('/'):
-        app_url += '/'
     for provide, fname in registry.get_scripts():
         parts = provide.rsplit('.', 1)
-        main = parts[0]
-        module_paths[main] = app_url + 'dojo/' + main
+        module_paths[parts[0]] = parts[0]
+
+    base_url = request.application_url
+    if not base_url.endswith('/'):
+        base_url += '/'
+    base_url += 'dojo/'
+    dj_config['baseUrl'] = base_url
+
     return dj_config
 
 

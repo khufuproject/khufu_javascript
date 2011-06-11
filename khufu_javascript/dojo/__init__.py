@@ -1,6 +1,7 @@
 import os
 import re
 import json
+import mimetypes
 
 from zope.interface import Interface, implements
 from pyramid.asset import abspath_from_asset_spec
@@ -12,8 +13,8 @@ from pyramid.response import Response
 from ..utils import PrefixedDict, SourcedDict
 
 DEFAULT_DJCONFIG = {
-    'isDebug': False,
-    'debugAtAllCosts': False,
+    #'isDebug': False,
+    #'debugAtAllCosts': False,
     #baseUrl: '',
     #modulePaths: {},
 }
@@ -115,29 +116,48 @@ def get_script_registry(config_or_request, create=True):
 def generate_dj_config(request):
     registry = get_script_registry(request)
     dj_config = registry.dj_config.as_dict()
-    module_paths = dj_config.get('modulePaths')
-    if module_paths is None:
-        dj_config['modulePaths'] = module_paths = {}
 
-    for provide, fname in registry.get_scripts():
-        parts = provide.rsplit('.', 1)
-        module_paths[parts[0]] = parts[0]
+    if request.registry.settings.get('DEBUG'):
+        if 'isDebug' not in dj_config:
+            dj_config['isDebug'] = True
+        if 'debugAtAllCosts' not in dj_config:
+            dj_config['debugAtAllCosts'] = True
+
+    if not os.path.exists('dojo'):
+        module_paths = dj_config.get('modulePaths')
+        if module_paths is None:
+            dj_config['modulePaths'] = module_paths = {}
+        for provide, fname in registry.get_scripts():
+            parts = provide.rsplit('.', 1)
+            module_paths[parts[0]] = parts[0]
 
     base_url = request.application_url
     if not base_url.endswith('/'):
         base_url += '/'
     base_url += 'dojo/'
-    dj_config['baseUrl'] = base_url
+
+    if not os.path.exists('dojo'):
+        dj_config['baseUrl'] = base_url
 
     return dj_config
 
 
 def render_header(request):
     dojo_base = u'http://ajax.googleapis.com/ajax/libs/dojo/1.6'
+    dojo_script = dojo_base + u'/dojo/dojo.xd.js'
+
+    if os.path.exists('dojo'):
+        dojo_base = request.application_url
+        if not dojo_base.endswith('/'):
+            dojo_base += '/'
+        dojo_base += 'dojo'
+        dojo_script = dojo_base + u'/dojo/dojo.js'
+
     dj_config = generate_dj_config(request)
     registry = get_script_registry(request)
     dijit_html = u''
     dijit_theme = registry.settings.get('dijit_theme')
+    print dijit_theme
 
     if dijit_theme:
         dijit_html = u'''\
@@ -152,10 +172,11 @@ def render_header(request):
   <script type="text/javascript">
     djConfig = %(dj_config)s;
   </script>
-  <script src="%(dojo_base)s/dojo/dojo.xd.js"
+  <script src="%(dojo_script)s"
           type="text/javascript"></script>
 ''' % {'dj_config': json.dumps(dj_config).decode('utf-8'),
        'dojo_base': dojo_base,
+       'dojo_script': dojo_script,
        'dijit_html': dijit_html}
 
 
@@ -172,7 +193,12 @@ class ScriptView(object):
         return app
 
     def __call__(self, request):
-        provide = '.'.join(request.matchdict['provide'])
+        m = request.matchdict['provide']
+        if len(m) > 1 and m[0] in (u'dojo', u'dijit',
+                                   u'dojox', u'_base'):
+            return self._local_file(request, m)
+
+        provide = '.'.join(m)
         provide = provide.rsplit('.', 1)[0]
 
         if not provide:
@@ -194,6 +220,30 @@ class ScriptView(object):
         # Zero out SCRIPT_NAME for good measure.
         request_copy.environ['SCRIPT_NAME'] = ''
         return request_copy.get_response(app)
+
+    def _abort(self, request):
+        s = request.url[len(request.application_url):]
+        raise NotFound(message=s)
+
+    def _local_file(self, request, path):
+        if not os.path.exists('dojo'):
+            self._abort(request)
+
+        for part in path:
+            if part[0] == '.' and part[-1] == '.':
+                self._abort(request)
+
+        local = os.path.join('dojo',
+                             os.path.sep.join(path))
+        if not os.path.isfile(local):
+            self._abort(request)
+
+        response = Response()
+        response.headers['Content-Type'] = mimetypes.guess_type(local)[0] \
+            or 'application/octet-stream'
+        response.headers['Content-Length'] = os.path.getsize(local)
+        response.app_iter = open(local)
+        return response
 
     def _listing_html(self, request):
         registry = get_script_registry(request)

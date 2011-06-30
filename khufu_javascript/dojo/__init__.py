@@ -146,7 +146,7 @@ def generate_dj_config(request):
 
 
 def render_header(request):
-    dojo_base = u'http://ajax.googleapis.com/ajax/libs/dojo/1.6'
+    dojo_base = u'http://ajax.googleapis.com/ajax/libs/dojo/1.6.0'
     dojo_script = dojo_base + u'/dojo/dojo.xd.js'
 
     if os.path.exists('dojo'):

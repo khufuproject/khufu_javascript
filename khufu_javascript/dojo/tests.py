@@ -1,5 +1,9 @@
 import unittest
 from pyramid.testing import setUp as setUpPyramid, DummyRequest
+try:
+    import webtest
+except ImportError:
+    webtest = None
 
 
 class DojoTests(unittest.TestCase):
@@ -20,13 +24,15 @@ class DojoTests(unittest.TestCase):
             app_url += '/'
 
         self.assertEqual(dj_config['modulePaths'],
-                         {'foo': app_url + 'dojo/foo'})
+                         {'foo': '../foo'})
 
-    def test_includeme(self):
-        self.config.include('khufu_javascript.dojo')
-        self.config.register_script('khufu_javascript.dojo:testscript.js')
+if webtest is not None:
+    class DojoWebTests(unittest.TestCase):
 
-        from webtest import TestApp
-        app = TestApp(self.config.make_wsgi_app())
-        res = app.get('/dojo/foo/bar.js')
-        self.assertTrue(res.status.startswith('200'))
+        def test_includeme(self):
+            self.config.include('khufu_javascript.dojo')
+            self.config.register_script('khufu_javascript.dojo:testscript.js')
+
+            app = webtest.TestApp(self.config.make_wsgi_app())
+            res = app.get('/dojo/foo/bar.js')
+            self.assertTrue(res.status.startswith('200'))

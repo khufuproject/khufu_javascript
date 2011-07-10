@@ -1,1 +1,1 @@
-dojo.provides('foo.bar');
+dojo.provide('foo.bar');

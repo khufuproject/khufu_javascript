@@ -1,2 +1,2 @@
-recursive-include khufu_javascript *.rst
+recursive-include khufu_javascript *.rst *.js
 include *.rst *.ini *.cfg

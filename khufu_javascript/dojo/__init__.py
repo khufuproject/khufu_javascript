@@ -41,6 +41,12 @@ class ScriptRegistry(object):
         self.settings = SourcedDict(*sources)
         self.dj_config = PrefixedDict('djconfig.', self.settings)
 
+    def _open(self, *args, **kwargs):
+        return open(*args, **kwargs)
+
+    def _listdir(self, *args, **kwargs):
+        return os.listdir(*args, **kwargs)
+
     def get_scripts(self):
         scripts = {}
         if self.parent is not None:
@@ -58,12 +64,17 @@ class ScriptRegistry(object):
     def register_script(self, fname, provide=None):
         filename = abspath_from_asset_spec(fname, self.default_package)
         if provide is None:
-            with open(filename) as f:
+            f = None
+            try:
+                f = self._open(filename)
                 for line in f:
                     match = provide_re.match(line.strip())
                     if match:
                         provide = match.group(1)
                         break
+            finally:
+                if f is not None:
+                    f.close()
 
         if not provide:
             raise ValueError('%s does not contain a '
@@ -73,7 +84,7 @@ class ScriptRegistry(object):
 
     def register_script_dir(self, dirspec):
         dirname = abspath_from_asset_spec(dirspec, self.default_package)
-        for x in os.listdir(dirname):
+        for x in self._listdir(dirname):
             if x.endswith('.js'):
                 self.register_script(os.path.join(dirname, x))
 

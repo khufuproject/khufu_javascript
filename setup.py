@@ -22,4 +22,5 @@ setup(name='khufu_javascript',
       zip_safe=True,
       install_requires=[],
       entry_points='',
+      test_suite="khufu_javascript.tests",
       )

@@ -6,6 +6,9 @@ class ResourceHelper(object):
     js_key = 'khufu_javascript.javascript_resources'
     css_key = 'khufu_javascript.css_resources'
 
+    css_html = '<link type="text/css" rel="stylesheet" href="%s" />\n'
+    js_html = '<script type="text/javascript" href="%s" />\n'
+
     def __init__(self, config=None, request=None):
         self.config = config
         self.request = request
@@ -33,9 +36,9 @@ class ResourceHelper(object):
         request = request or self.request
         s = u''
         for name, path in self.settings[self.css_key]:
-            s += '<link type="text/css" rel="stylesheet" href="%s" />\n' % request.static_url(path)
+            s += self.css_html % request.static_url(path)
         for name, path in self.settings[self.js_key]:
-            s += '<script type="text/javascript" href="%s" />\n' % request.static_url(path)
+            s += self.js_html % request.static_url(path)
         return s
 
 

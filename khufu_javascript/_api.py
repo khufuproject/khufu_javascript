@@ -2,98 +2,139 @@ from collections import OrderedDict
 from zope.interface import implements, Interface
 
 
-def get_or_set_obj(provides, factory, config_or_request, create=True):
-    r = config_or_request.registry
-
-    global_obj = obj = r.queryUtility(provides)
-    if global_obj is None and create:
-        obj = global_obj = factory(settings=r.settings)
-        r.registerUtility(global_obj, provides)
-
-    if hasattr(config_or_request, 'environ'):
-        environ = config_or_request.environ
-        k = 'khufu.dojo.registry'
-        if k in environ:
-            obj = environ[k]
-        elif create:
-            obj = environ[k] = factory(parent=global_obj)
-
-    return obj
+class IRenderable(Interface):
+    def render(request):
+        '''Render (normally to html) this object
+        '''
 
 
 class IResource(Interface):
     def render(request):
-        pass
+        '''Render the given resource'''
 
 
 class Resource(object):
-    implements(IResource)
+    implements(IResource, IRenderable)
 
     html = u'%(path)s\n'
 
-    def __init__(self, path):
+    def __init__(self, path, use_static_url=False):
         self.path = path
+        self.use_static_url = use_static_url
 
     def render(self, request):
-        return self.html % {'path': request.static_url(self.path)}
+        path = self.path
+        if self.use_static_url:
+            path = request.static_url(self.path)
+        return self.html % {'path': path}
 
 
-class JavascriptResource(object):
+class JavascriptResource(Resource):
     html = (u'<script type="text/javascript"\n'
             u'        href="%(path)s" />\n')
 
 
-class StylesheetResource(object):
+class StylesheetResource(Resource):
     html = (u'<link type="text/css"\n'
             u'      rel="stylesheet"\n'
             u'      href="%(path)s" />\n')
 
 
-class ResourceHelper(object):
+class ResourceRegistry(object):
     '''Provides a central location for registering
     stylesheets and javascripts.
     '''
 
-    js_key = 'khufu_javascript.javascript_resources'
-    css_key = 'khufu_javascript.css_resources'
+    implements(IRenderable)
 
-    def __init__(self, config=None, request=None, parent=None):
-        self.config = config
-        self.request = request
+    def __init__(self, parent=None, default_package=None):
+        self._js = OrderedDict()
+        self._css = OrderedDict()
+        self.default_package = default_package or '__main__'
         self.parent = parent
 
-        if config is not None:
-            registry = config.registry
-        else:
-            registry = request.registry
-        self.registry = registry
-        self._settings = registry.settings
+    def _get_resources(self, attr):
+        resources = OrderedDict()
+        if self.parent is not None:
+            resources.update(getattr(self.parent, attr))
+        resources.update(getattr(self, attr))
+        return resources
 
-    @property
-    def settings(self):
-        for key in (self.js_key, self.css_key):
-            d = self._settings.get(key, None)
-            if d is None:
-                self._settings[key] = OrderedDict()
-        return self._settings
+    def get_javascripts(self):
+        return self._get_resources('_js').values()
 
-    def add_javascript(self, name, path):
-        self.settings[self.js_key][name] = JavascriptResource(path)
+    def get_stylesheets(self):
+        return self._get_resources('_css').values()
 
-    def add_stylesheet(self, name, path):
-        self.settings[self.css_key][name] = StylesheetResource(path)
+    def _add(self, path, obj, attr):
+        container = getattr(self, attr)
+        if path in container:
+            raise ValueError(path + ' already exists')
+        container[path] = obj
+
+    def add_javascript(self, path):
+        o = path
+        if not isinstance(path, JavascriptResource):
+            o = JavascriptResource(path)
+        self._add(path, o, '_js')
+
+    def add_stylesheet(self, path):
+        o = path
+        if not isinstance(path, StylesheetResource):
+            o = StylesheetResource(path)
+        self._add(path, o, '_css')
+
+    def render(self, request):
+        rendered = u''
+        for js in self.get_javascripts():
+            rendered += js.render(request)
+        for css in self.get_stylesheets():
+            rendered += css.render(request)
+        return rendered
+
+
+KEY = 'khufu_javascript.resource_registry'
+
+
+def get_resource_registry(config_or_request):
+    '''Get the appropriate resource registry.
+
+    If config_or_request is a config object, then this adds
+    scripts to the global pool that will be used on any page.
+
+    If config_or_request is a request object, then this adds
+    scripts to the request-scope pool that will only be used
+    for the active request.  Rendering this registry will use
+    the master (ie config) level pool plus the local pool.
+    '''
+
+    source = None
+    if hasattr(config_or_request, 'environ'):
+        source = config_or_request.environ
+        parent = config_or_request.registry.settings[KEY]
+    else:
+        source = config_or_request.registry.settings
+        parent = None
+
+    if KEY not in source:
+        source[KEY] = ResourceRegistry(parent=parent)
+
+    return source[KEY]
+
+
+class RequestRenderable(object):
+    '''Provides a renderable that doesn't require a request.
+    '''
+
+    implements(IRenderable)
+
+    def __init__(self, renderable, request):
+        self.renderable = renderable
+        self.request = request
 
     def render(self, request=None):
-        request = request or self.request
-
+        request = request
         if request is None:
-            raise ValueError('Please specify the active request '
-                             'either as an attribute on this '
-                             'resourcehelper or as an argument to '
-                             'the render method')
+            request = self.request
 
-        rendered = u''
-        for key in (self.css_key, self.js_key):
-            for name, resource in self.settings[key].items():
-                rendered += resource.render(request)
-        return rendered
+        return self.renderable.render(request=request)

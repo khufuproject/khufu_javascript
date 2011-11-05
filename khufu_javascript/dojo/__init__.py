@@ -11,6 +11,8 @@ from pyramid.exceptions import NotFound
 from pyramid.response import Response
 
 from ..utils import PrefixedDict, SourcedDict
+from .._api import IRenderable
+
 
 DEFAULT_DJCONFIG = {
     #'isDebug': False,
@@ -28,7 +30,7 @@ class IScriptRegistry(Interface):
 
 
 class ScriptRegistry(object):
-    implements(IScriptRegistry)
+    implements(IScriptRegistry, IRenderable)
 
     def __init__(self, settings=None, default_package=None, parent=None):
         self.scripts = {}
@@ -87,6 +89,9 @@ class ScriptRegistry(object):
         for x in self._listdir(dirname):
             if x.endswith('.js'):
                 self.register_script(os.path.join(dirname, x))
+
+    def render(self, request):
+        return render_header(request)
 
 
 def register_script(config_or_request, fname, provide=None):

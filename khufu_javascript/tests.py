@@ -1,66 +1,58 @@
+import doctest
 import unittest
+import os
 
 from khufu_javascript.testing import Mock, MockRegistryHolder
 
-class ResourceHelperTests(unittest.TestCase):
 
-    def get_resource_helper(self, *args, **kwargs):
-        from khufu_javascript import ResourceHelper
-        return ResourceHelper(*args, **kwargs)
+class RootTests(unittest.TestCase):
+    def test_includeme(self):
+        from khufu_javascript import includeme
+        # doesn't currently do anything
+        includeme(None)
 
-    def test_init(self):
-        helper = self.get_resource_helper(config=MockRegistryHolder())
-        self.assertTrue(helper._settings is \
-                            MockRegistryHolder.registry.settings)
-        helper = self.get_resource_helper(request=MockRegistryHolder())
-        self.assertTrue(helper._settings is \
-                            MockRegistryHolder.registry.settings)
 
-    def test_settings(self):
-        helper = self.get_resource_helper(MockRegistryHolder())
-        self.assertTrue('khufu_javascript.javascript_resources' in \
-                            helper.settings)
-        self.assertTrue('khufu_javascript.css_resources' in \
-                            helper.settings)
+class ResourceRegistryTests(unittest.TestCase):
+
+    def get_resource_registry(self, *args, **kwargs):
+        from khufu_javascript._api import ResourceRegistry
+        return ResourceRegistry(*args, **kwargs)
+
+    def test_resource(self):
+        from khufu_javascript._api import Resource
+        r = Resource('foo.js', use_static_url=True)
+        self.assertTrue('foo.js' in r.render(Mock(static_url=lambda x: x)))
 
     def test_add_resources(self):
-        helper = self.get_resource_helper(MockRegistryHolder())
-        settings = helper.settings
+        helper = self.get_resource_registry(MockRegistryHolder())
+        helper.add_javascript('somepath.js')
+        self.assertTrue('somepath.js' in helper._js)
+        helper.add_stylesheet('some.css')
+        self.assertTrue('some.css' in helper._css)
 
-        helper.add_javascript('foo', 'foobar:static/some.js')
-        self.assertTrue(
-            ('foo', 'foobar:static/some.js') in \
-                settings['khufu_javascript.javascript_resources'])
-
-        helper.add_stylesheet('bar', 'foobar:static/some.css')
-        self.assertTrue(
-            ('bar', 'foobar:static/some.css')in \
-                settings['khufu_javascript.css_resources'])
+        self.assertRaises(ValueError, helper.add_stylesheet, 'some.css')
 
     def test_render(self):
-        helper = self.get_resource_helper(MockRegistryHolder())
-        helper.add_javascript('foo', 'foobar:static/some.js')
-        helper.add_stylesheet('bar', 'foobar:static/some.css')
+        helper = self.get_resource_registry(parent=Mock(_js={}, _css={}))
+        helper.add_javascript('some.js')
+        helper.add_stylesheet('some.css')
 
         rendered = helper.render(Mock(static_url=lambda x: x))
         self.assertTrue('some.js' in rendered)
         self.assertTrue('some.css' in rendered)
 
+    def test_get_resource_registry(self):
+        from khufu_javascript import get_resource_registry
+        r = get_resource_registry(Mock(registry=Mock(settings={})))
+        self.assertEqual(r.parent, None)
+        r = get_resource_registry(Mock(environ={}, registry=Mock(settings={'khufu_javascript.resource_registry': Mock()})))
+        self.assertNotEqual(r.parent, None)
 
-class MainTests(unittest.TestCase):
-    def test_setup_globals(self):
-        from khufu_javascript import setup_globals
-        d = {'request': Mock(registry=Mock(settings={}))}
-        setup_globals(d)
-        self.assertTrue('resource_helper' in d)
 
-    def test_includeme(self):
-        from khufu_javascript import includeme
-        holder = MockRegistryHolder()
-        includeme(holder)
-        self.assertTrue('get_resource_helper' in holder.directives)
-        self.assertTrue(len(holder.subscribers) > 0)
-
+    def test_request_renderable(self):
+        from khufu_javascript._api import RequestRenderable
+        rr = RequestRenderable(Mock(render=lambda request: u'foo'), None)
+        rr.render()
 
 class PrefixedDictTests(unittest.TestCase):
     def test_setitem(self):

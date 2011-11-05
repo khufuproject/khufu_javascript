@@ -4,33 +4,41 @@ Introduction
 *khufu_javascript* provides various ways for including Javascript 
 and stylesheet resources into your Khufu/Pyramid app.
 
-Usage - Resource Helper
------------------------
+Usage - Resource Registry
+-------------------------
 
-``khufu_javascript.ResourceHelper`` is a helper utility for managing Javascript
+``khufu_javascript.ResourceRegistry`` is a helper utility for managing Javascript
 and Stylesheet resources.
 
-The curent *ResourceHelper* can be looked up by calling (after including
+The curent *ResourceRegistry* can be looked up by calling (after including
 ``khufu_javascript`` with the configurator)::
 
-  config.include('khufu_javascript')
-  helper = config.get_resource_helper()
-  helper.add_javascript('myapp.js1', 'somepackage:static/foobar.js')
-  helper.add_stylesheet('myapp.css1', 'somepackage:static/helloworld.css')
+  >>> from khufu_javascript import get_resource_registry
+  >>> config.include('khufu_javascript')
+  >>> helper = get_resource_registry(config)
+  >>> helper.add_javascript('/static/foobar.js')
+  >>> helper.add_stylesheet('http://someplace.com/style.css')
+  >>> print 'foo'
 
 And inside a view::
 
-  from khufu_javascript import ResourceHelper
+  from khufu_javascript import get_resource_registry, RequestRenderable
 
   @view_config('myview', renderer='templates/foo.jinja2',
                context=Root)
   def myview(request):
-      helper = ResourceHelper(request=request)
-      unicode_str = helper.render()
-      return {'resources_html': unicode_str}
+      helper = get_resource_registry(request)
+      return {'resources': RequestRenderable(helper, request)}
 
-``config.get_resource_helper()`` will always return a thread-safe *ResourceHelper*
-instance so there is no need to worry about threadlocal's or global var's.
+  <!-- templates/foo.jinja2 -->
+  <html>
+    <head>
+      {{ resources.render()|safe }}
+    </head>
+    <body>
+      yes sir!
+    </body>
+  </html>
 
 
 Usage - Dojo
@@ -61,30 +69,30 @@ to tell Dojo to look at */dojo/whatever* when looking up non-core modules.
 Dojo handles this with *djConfig* which can be used to setup module load
 paths.
 
-After having registered scripts, inside of your views you can simply call
-``khufu_javascript.dojo.render_header``.
+Here's an example.
 ::
 
     # views.py
-    from khufu_javascript.dojo import render_header
+    from khufu_javascript.dojo import get_script_registry
+    from khufu_javascript import RequestRenderable
 
     @view_config('myview', renderer='templates/foo.jinja2',
                  context=Root)
     def myview(request):
-        dojo_header = render_header(request)
-        return {'dojo_header': dojo_header}
+        dojo = RequestRenderable(get_script_registry(request), request)
+        return {'dojo': dojo}
 
     <!-- templates/foo.jinja2 -->
     <html>
       <head>
-        {{ dojo_header|safe }}
+        {{ dojo.render()|safe }}
       </head>
       <body>
         yes sir!
       </body>
     </html>
 
-The ``render_header`` method will generate the appropriate *<link>*, *<style>*,
+The ``dojo.render()`` method will generate the appropriate *<link>*, *<style>*,
 and *<script>* elements for loading Dojo.  It will also generate
 the appropriate *djConfig* object that configures the module loading path
 to work with our ``/dojo`` view.

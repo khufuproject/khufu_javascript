@@ -40,13 +40,14 @@ Usage - Dojo
 ``khufu_javascript.dojo`` provides support for working with Dojo.
 
 Setting up khufu_javascript.dojo is easy.
+
 ::
 
     # config must be an instance of pyramid.config.Configurator
     config.include('khufu_javascript.dojo')
     config.register_script_dir('myproject:javascripts')
 
-The previous example will iterate over all *.js files in the ``javascripts``
+The previous example will iterate over all .js files in the ``javascripts``
 directory relative to the ``myproject`` package (``register_script_dir`` takes
 an asset spec).  For each .js file found it scans for a ``dojo.provides('foo')``
 entry and registers that module with khufu_javascript.
@@ -63,29 +64,20 @@ Dojo handles this with *djConfig* which can be used to setup module load
 paths.
 
 Here's an example.
+
 ::
-
-    # views.py
-    from khufu_javascript.dojo import get_script_registry
-    from khufu_javascript import RequestRenderable
-
-    @view_config('myview', renderer='templates/foo.jinja2',
-                 context=Root)
-    def myview(request):
-        dojo = RequestRenderable(get_script_registry(request), request)
-        return {'dojo': dojo}
 
     <!-- templates/foo.jinja2 -->
     <html>
       <head>
-        {{ dojo.render()|safe }}
+        {{ khufu_dojo.render()|safe }}
       </head>
       <body>
         yes sir!
       </body>
     </html>
 
-The ``dojo.render()`` method will generate the appropriate *<link>*, *<style>*,
+The ``khufu_dojo.render()`` method will generate the appropriate *<link>*, *<style>*,
 and *<script>* elements for loading Dojo.  It will also generate
 the appropriate *djConfig* object that configures the module loading path
 to work with our ``/dojo`` view.

@@ -1,6 +1,6 @@
 from setuptools import setup, find_packages
 
-version = '1.0a1'
+version = '1.0a2'
 
 long_description = open('README.rst').read() \
     + '\n\n' \
@@ -15,7 +15,7 @@ setup(name='khufu_javascript',
       keywords='khufu pyramid pylons',
       author='Rocky Burt',
       author_email='rocky@serverzen.com',
-      url='',
+      url='https://github.com/khufu_javascript/',
       license='BSD',
       packages=find_packages(),
       include_package_data=True,

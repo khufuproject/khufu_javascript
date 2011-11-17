@@ -1,6 +1,6 @@
 from setuptools import setup, find_packages
 
-version = '0.1'
+version = '1.0a1'
 
 long_description = open('README.rst').read() \
     + '\n\n' \
@@ -20,7 +20,7 @@ setup(name='khufu_javascript',
       packages=find_packages(),
       include_package_data=True,
       zip_safe=True,
-      install_requires=[],
+      install_requires=['pyramid'],
       entry_points='',
       test_suite="khufu_javascript.tests",
       )

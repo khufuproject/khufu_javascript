@@ -2,7 +2,8 @@ Introduction
 ============
 
 *khufu_javascript* provides various ways for including Javascript 
-and stylesheet resources into your Khufu/Pyramid app.
+and stylesheet resources into your Khufu/Pyramid app.  It currently requires
+*Python 2.7* or higher (*Python 3.x* not tested).
 
 Usage - Resource Registry
 -------------------------

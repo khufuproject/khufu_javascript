@@ -25,8 +25,11 @@ class Resource(object):
     def render(self, request):
         path = self.path
         if self.use_static_url:
-            path = request.static_url(self.path)
+            path = request.static_url(path)
         return self.html % {'path': path}
+
+    def __unicode__(self):
+        return u'<%s path=%s>' % (self.__class__.__name__, self.path)
 
 
 class JavascriptResource(Resource):
@@ -66,23 +69,31 @@ class ResourceRegistry(object):
     def get_stylesheets(self):
         return self._get_resources('_css').values()
 
-    def _add(self, path, obj, attr):
+    def _add(self, obj, attr):
         container = getattr(self, attr)
-        if path in container:
-            raise ValueError(path + ' already exists')
-        container[path] = obj
+        if obj.path in container:
+            raise ValueError(obj.path + ' already exists')
+        container[obj.path] = obj
 
-    def add_javascript(self, path):
-        o = path
-        if not isinstance(path, JavascriptResource):
-            o = JavascriptResource(path)
-        self._add(path, o, '_js')
+    def add_javascript(self, javascript):
+        o = javascript
+        if isinstance(javascript, basestring):
+            o = JavascriptResource(javascript)
 
-    def add_stylesheet(self, path):
-        o = path
-        if not isinstance(path, StylesheetResource):
-            o = StylesheetResource(path)
-        self._add(path, o, '_css')
+        if not isinstance(o, JavascriptResource):
+            raise TypeError('stylesheet arg must either be a string '
+                            'or StylesheetResource instance')
+        self._add(o, '_js')
+
+    def add_stylesheet(self, stylesheet):
+        o = stylesheet
+        if isinstance(stylesheet, basestring):
+            o = StylesheetResource(stylesheet)
+
+        if not isinstance(o, StylesheetResource):
+            raise TypeError('stylesheet arg must either be a string '
+                            'or StylesheetResource instance')
+        self._add(o, '_css')
 
     def render(self, request):
         rendered = u''

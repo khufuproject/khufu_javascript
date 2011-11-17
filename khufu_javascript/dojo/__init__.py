@@ -4,6 +4,7 @@ import json
 import mimetypes
 
 from zope.interface import Interface, implements
+from pyramid.events import BeforeRender
 from pyramid.asset import abspath_from_asset_spec
 from paste.urlparser import StaticURLParser
 from pyramid.httpexceptions import HTTPSeeOther
@@ -11,7 +12,7 @@ from pyramid.exceptions import NotFound
 from pyramid.response import Response
 
 from ..utils import PrefixedDict, SourcedDict
-from .._api import IRenderable
+from .._api import IRenderable, RequestRenderable
 
 
 DEFAULT_DJCONFIG = {
@@ -290,8 +291,15 @@ def slash_redirect(request):
     return HTTPSeeOther(location=request.url + '/')
 
 
+def setup_resources(event):
+    request = event['request']
+    event['khufu_dojo'] = RequestRenderable(
+        get_script_registry(request), request)
+
+
 def includeme(config):
     config.add_directive('register_script', register_script)
     config.add_directive('register_script_dir', register_script_dir)
     config.add_route('dojo', '/dojo/*provide', view=ScriptView())
     config.add_route('dojo_redirect', '/dojo', slash_redirect)
+    config.add_subscriber(setup_resources, BeforeRender)

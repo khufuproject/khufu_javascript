@@ -18,22 +18,14 @@ The curent *ResourceRegistry* can be looked up by calling (after including
   >>> helper = get_resource_registry(config)
   >>> helper.add_javascript('/static/foobar.js')
   >>> helper.add_stylesheet('http://someplace.com/style.css')
-  >>> print 'foo'
 
-And inside a view::
-
-  from khufu_javascript import get_resource_registry, RequestRenderable
-
-  @view_config('myview', renderer='templates/foo.jinja2',
-               context=Root)
-  def myview(request):
-      helper = get_resource_registry(request)
-      return {'resources': RequestRenderable(helper, request)}
+And inside a view (since *khufu_javascript* sets up a template-accessible
+``khufu_resources`` object)::
 
   <!-- templates/foo.jinja2 -->
   <html>
     <head>
-      {{ resources.render()|safe }}
+      {{ khufu_resources.render()|safe }}
     </head>
     <body>
       yes sir!

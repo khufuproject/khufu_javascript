@@ -8,8 +8,13 @@ from khufu_javascript.testing import Mock, MockRegistryHolder
 class RootTests(unittest.TestCase):
     def test_includeme(self):
         from khufu_javascript import includeme
-        # doesn't currently do anything
-        includeme(None)
+        subscribed = []
+
+        def add_subscriber(*args, **kwargs):
+            subscribed.append((args, kwargs))
+        includeme(Mock(add_subscriber=add_subscriber))
+
+        self.assertTrue(len(subscribed), 1)
 
 
 class ResourceRegistryTests(unittest.TestCase):
@@ -31,6 +36,9 @@ class ResourceRegistryTests(unittest.TestCase):
         self.assertTrue('some.css' in helper._css)
 
         self.assertRaises(ValueError, helper.add_stylesheet, 'some.css')
+
+        self.assertRaises(TypeError, helper.add_javascript, 1)
+        self.assertRaises(TypeError, helper.add_stylesheet, 1)
 
     def test_render(self):
         helper = self.get_resource_registry(parent=Mock(_js={}, _css={}))
